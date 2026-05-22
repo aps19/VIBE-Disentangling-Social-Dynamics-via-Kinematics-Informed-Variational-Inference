@@ -2,7 +2,7 @@
 
 # 🎭 VIBE: Disentangling Social Dynamics via Kinematics-Informed Variational Inference for Behavioral Emotion
 
-[![ICML 2026](https://img.shields.io/badge/ICML-2026-blue?style=for-the-badge&logo=academia&logoColor=white)](https://icml.cc/)
+[![ICML 2026](https://img.shields.io/badge/ICML-2026-blue?style=for-the-badge&logo=academia&logoColor=white)](https://icml.cc/virtual/2026/poster/62321)
 [![Paper](https://img.shields.io/badge/📄_Paper-arXiv-red?style=for-the-badge)](https://arxiv.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.9+-blue?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
@@ -131,7 +131,6 @@ python data_preprocessing/preprocessing_gecv.py
 ```
 
 **Step 2: Extract Primitives**
-
 
 Once preprocessing is complete, extract the features for your target dataset:
 
