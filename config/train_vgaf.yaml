@@ -1,5 +1,5 @@
 # ==================== PATHS ====================
-data_root: "./VGAF_CSYNC_PRIMITIVES"
+data_root: "./VGAF_VIBE_PRIMITIVES"
 log_dir: "./logs/vibe_vgaf"
 checkpoint_dir: "./checkpoints/vibe_vgaf"
 

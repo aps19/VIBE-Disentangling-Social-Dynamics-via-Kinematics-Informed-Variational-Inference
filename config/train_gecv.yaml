@@ -1,5 +1,5 @@
 # ==================== PATHS ====================
-data_root: "./GEVC_PRIMITIVES"
+data_root: "./GEVC_VIBE_PRIMITIVES"
 log_dir: "./logs/vibe_gecv"
 checkpoint_dir: "./checkpoints/vibe_gecv"
 

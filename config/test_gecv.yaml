@@ -1,5 +1,5 @@
 # --- CONFIGURATION ---
-data_root: "./GEVC_CSYNC_PRIMITIVES"
+data_root: "./GEVC_VIBE_PRIMITIVES"
 log_dir: "./logs/vibe_gecv"
 batch_size: 8          # Faster inference
 latent_dim: 512
