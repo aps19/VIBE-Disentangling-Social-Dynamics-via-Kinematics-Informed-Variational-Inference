@@ -84,12 +84,13 @@ class CSYNCTester:
                     batch['gamma']
                 )
                 
-                preds.extend(torch.argmax(out['logits'], dim=1).cpu().numpy())
-                targets.extend(batch['labels'].cpu().numpy())
+                # Prevent gradient graph retention and properly cast to list/numpy immediately
+                preds.extend(torch.argmax(out['logits'], dim=1).detach().cpu().numpy().tolist())
+                targets.extend(batch['labels'].detach().cpu().numpy().tolist())
                 
-                # Collect Embeddings (Limit to ~1000 samples to keep t-SNE fast)
+                # Collect Embeddings safely isolated from previous batch runs
                 if len(h_final_list) * self.cfg['batch_size'] < 1000:
-                    h_final_list.append(out['h_final'].cpu())
+                    h_final_list.append(out['h_final'].detach().cpu().clone())
 
         acc = accuracy_score(targets, preds)
         f1 = f1_score(targets, preds, average='weighted', zero_division=0)
@@ -97,9 +98,9 @@ class CSYNCTester:
         return {
             'acc': acc, 
             'f1': f1, 
-            'preds': preds, 
-            'targets': targets,
-            'h_final': h_final_list
+            'preds': preds.copy(), 
+            'targets': targets.copy(),
+            'h_final': [h.clone() for h in h_final_list]
         }
 
     def generate_interactive_3d_tsne(self, embeddings, labels, model_name):
@@ -169,7 +170,10 @@ class CSYNCTester:
         best_targets = None
 
         for model_path in models:
-            # 1. Load & Eval
+            # 1. Clear CUDA cache between models to prevent memory leak/retention
+            torch.cuda.empty_cache()
+            
+            # 2. Load & Eval
             ep, saved_acc = self.load_weights(model_path)
             metrics = self.evaluate_single_model(model_path.name)
             

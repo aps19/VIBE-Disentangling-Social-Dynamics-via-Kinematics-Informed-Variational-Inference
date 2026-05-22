@@ -37,7 +37,7 @@ class VIBETrainer:
         )
         
         # Extract dataset params
-        max_k = cfg.get('max_k', 5)
+        max_k = cfg.get('max_k', 8)
         max_t = cfg.get('max_t', 32)
         num_workers = cfg.get('num_workers', 0)
         
@@ -96,7 +96,7 @@ class VIBETrainer:
         
         mixup_alpha = self.cfg.get('mixup_alpha', 0.2)
         grad_clip = self.cfg.get('grad_clip', 1.0)
-        save_threshold = self.cfg.get('save_threshold', 0.60)
+        save_threshold = self.cfg.get('save_threshold', 0.65)
         
         for epoch in range(1, epochs + 1):
             self.model.train()

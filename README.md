@@ -118,10 +118,10 @@ python testing/inference.py --video /your/video.mp4 --config config/inference.ya
 
 ```bash
 # Train on VGAF
-python ./trainer/training_function.py --config configs/vgaf_train.yaml
+python ./trainer/train_model.py --config configs/vgaf_train.yaml
 
 # Evaluate on VGAF
-python ./testing/testing.py --config configs/vgaf_test.yaml
+python ./testing/test_model.py --config configs/vgaf_test.yaml
 ```
 
 ---
