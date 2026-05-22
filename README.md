@@ -135,7 +135,7 @@ python data_preprocessing/preprocessing_gecv.py
 
 Once preprocessing is complete, extract the features for your target dataset:
 
-**Extract Primitive for VGAF data:**
+**Extract Primitives for VGAF data:**
 
 ```bash
 python data_preprocessing/extract_primitives.py --config config/data_extraction.yaml --dataset vgaf
