@@ -17,6 +17,7 @@
 ## 📰 News
 
 - 🎉 **[May 2026]** VIBE has been **accepted at ICML 2026**!!
+
 <!-- - 📄 **[May 2026]** Paper preprint is available on arXiv.
 - 🚀 **[May 2026]** Code and pretrained models are released.  -->
 
@@ -35,11 +36,8 @@ VIBE is a multimodal, causally-structured framework that processes video, audio,
 ## ✨ Key Innovations
 
 - 🔀 **Causal Disentanglement**: Employs a Dual-Stream Variational Information Bottleneck (VIB) to strictly separate affective signals from environmental confounders.
-
 - 📐 **Orthogonality Constraint**: Introduces a soft constraint that geometrically forces the "Agent" and "Context" latent spaces to remain disjoint, ensuring the model focuses on agent dynamics rather than background noise.
-
 - ⚡ **Gamma-Gated Transformer**: Features a Transformer equipped with Decoupled Adaptive Layer Normalization (AdaLN). This modulates neural attention based on a raw physical synchrony metric ($\gamma$), allowing the model to dynamically adapt based on the crowd's physical state.
-
 - 🔤 **Text-Guided Semantic Alignment**: Projects learned features into a shared embedding space to enforce cosine similarity with pre-trained textual anchors, explicitly grounding abstract visual dynamics in human interpretability.
 
 ---
@@ -48,12 +46,12 @@ VIBE is a multimodal, causally-structured framework that processes video, audio,
 
 VIBE integrates audio, video, and text modalities through specialized pre-trained backbones:
 
-| Modality | Feature | Backbone | Description |
-|----------|---------|----------|-------------|
-| 🎥 Video (Global) | $X_{glob}$ | VideoMAE V2 | Scene-level dynamics via token sequences |
-| 👤 Video (Local) | $X_{loc}$ | DINOv2 | Agent-centric visual tubes per tracked person |
-| 🔊 Audio | $X_{aud}$ | HuBERT | Paralinguistic cues (pitch, energy) |
-| 📝 Text | $X_{text}$ | RoBERTa | Crowd-level semantic descriptions |
+| Modality          | Feature      | Backbone    | Description                                   |
+| ----------------- | ------------ | ----------- | --------------------------------------------- |
+| 🎥 Video (Global) | $X_{glob}$ | VideoMAE V2 | Scene-level dynamics via token sequences      |
+| 👤 Video (Local)  | $X_{loc}$  | DINOv2      | Agent-centric visual tubes per tracked person |
+| 🔊 Audio          | $X_{aud}$  | HuBERT      | Paralinguistic cues (pitch, energy)           |
+| 📝 Text           | $X_{text}$ | RoBERTa     | Crowd-level semantic descriptions             |
 
 ---
 
@@ -61,10 +59,10 @@ VIBE integrates audio, video, and text modalities through specialized pre-traine
 
 VIBE sets a new state-of-the-art for group affect prediction on "in-the-wild" datasets, consistently outperforming prior methods:
 
-| 📁 Dataset | 🎯 Accuracy | 📈 F1 Score |
-|:---:|:---:|:---:|
-| **VGAF** | **70.17%** | 0.701 |
-| **GECV** | **91.85%** | 0.915 |
+|   📁 Dataset   |   🎯 Accuracy   | 📈 F1 Score |
+| :------------: | :--------------: | :---------: |
+| **VGAF** | **70.17%** |    0.701    |
+| **GECV** | **91.85%** |    0.915    |
 
 > 💡 Performance consistently peaks when the model tracks around **8 agents** ($K=8$), effectively capturing the primary affective circle.
 
@@ -80,16 +78,16 @@ VIBE sets a new state-of-the-art for group affect prediction on "in-the-wild" da
 
 ### 🔧 Training Configuration
 
-| Setting | Value |
-|---------|-------|
-| Optimizer | AdamW |
-| Weight Decay | $1 \times 10^{-3}$ |
-| LR Scheduler | Cosine Annealing |
-| Batch Size | 16 |
-| Initial LR | $1 \times 10^{-4}$ |
-| Latent Dimension (D) | 512 |
-| Epochs | 30 |
-| Warm-up Period | 3 epochs |
+| Setting              | Value                |
+| -------------------- | -------------------- |
+| Optimizer            | AdamW                |
+| Weight Decay         | $1 \times 10^{-3}$ |
+| LR Scheduler         | Cosine Annealing     |
+| Batch Size           | 16                   |
+| Initial LR           | $1 \times 10^{-4}$ |
+| Latent Dimension (D) | 512                  |
+| Epochs               | 30                   |
+| Warm-up Period       | 3 epochs             |
 
 ### 📦 Data Processing
 
@@ -104,14 +102,11 @@ VIBE sets a new state-of-the-art for group affect prediction on "in-the-wild" da
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/VIBE.git
-cd VIBE
+git clone https://github.com/aps19/VIBE-Disentangling-Social-Dynamics-via-Kinematics-Informed-Variational-Inference.git
+cd VIBE-Disentangling-Social-Dynamics-via-Kinematics-Informed-Variational-Inference
 
 # Install dependencies
 pip install -r requirements.txt
-
-# Run inference on a video
-python inference.py --video path/to/video.mp4 --checkpoint checkpoints/vibe_best.pth
 ```
 
 ---
@@ -120,13 +115,10 @@ python inference.py --video path/to/video.mp4 --checkpoint checkpoints/vibe_best
 
 ```bash
 # Train on VGAF
-python train.py --dataset vgaf --config configs/vgaf.yaml
+python ./trainer/training_function.py --config configs/vgaf_train.yaml
 
-# Train on GECV
-python train.py --dataset gecv --config configs/gecv.yaml
-
-# Evaluate
-python eval.py --dataset vgaf --checkpoint checkpoints/vibe_best.pth
+# Evaluate on VGAF
+python ./testing/testing.py --config configs/vgaf_test.yaml
 ```
 
 ---
@@ -161,8 +153,6 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 <div align="center">
   <sub>Built by Abhishek and Deepak  | Accepted at ICML 2026</sub>
 </div>
-
-
 
 <!--
 ## VIBE: Disentangling Social Dynamics via Kinematics-Informed Variational Inference for Behavioral Emotion 
