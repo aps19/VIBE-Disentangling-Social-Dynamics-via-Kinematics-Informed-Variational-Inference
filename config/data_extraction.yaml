@@ -1,0 +1,13 @@
+# ==================== DATA EXTRACTION TARGETS ====================
+
+vgaf:
+  raw_data_root: "./VGAF_processed"
+  vibe_output_root: "./VGAF_VIBE_PRIMITIVES"
+  train_xlsx: "./VGAF_processed/train.xlsx"
+  val_xlsx: "./VGAF_processed/val.xlsx"
+
+gecv:
+  raw_data_root: "./GECV_processed"
+  vibe_output_root: "./GECV_VIBE_PRIMITIVES"
+  train_xlsx: "./GECV_processed/train.xlsx"
+  val_xlsx: "./GECV_processed/val.xlsx"

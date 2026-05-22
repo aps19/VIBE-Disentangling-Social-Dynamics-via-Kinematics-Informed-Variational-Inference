@@ -114,6 +114,39 @@ python testing/inference.py --video /your/video.mp4 --config config/inference.ya
 
 ---
 
+---
+
+## 🧹 Data Preprocessing
+
+Before training or evaluating the model, the raw datasets must be preprocessed and the underlying primitives (global video frames, local agent tubes, audio, etc.) must be extracted.
+
+**Step 1: Initial Preprocessing**
+Run the preprocessing script to clean and format the raw dataset:
+
+```bash
+# Preprocess VGAF Dataset
+python data_preprocessing/preprocessing_vgaf.py
+
+# Preprocess GECV Dataset
+python data_preprocessing/preprocessing_gecv.py
+```
+
+**Step 2: Extract Primitives**
+Once preprocessing is complete, extract the features for your target dataset:
+
+**Command to process VGAF data:**
+
+```bash
+python data_preprocessing/extract_primitives.py --config config/data_extraction.yaml --dataset vgaf
+```
+
+**Command to process GECV data:**
+
+```bash
+python data_preprocessing/extract_primitives.py --config config/data_extraction.yaml --dataset gecv
+```
+
+
 ## 🧪 Reproduce Results
 
 ```bash

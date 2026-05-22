@@ -40,7 +40,6 @@ except ImportError:
     logger.error("Ultralytics not found. Please run: pip install ultralytics")
     raise
 
-# --- NEW: HuBERT Extractor (FIXED) ---
 class HubertExtractor:
     """
     Extracts high-level audio features using a pre-trained HuBERT model.
@@ -69,6 +68,7 @@ class HubertExtractor:
             if len(y) < 1600: # Skip if shorter than 0.1s
                 return None
 
+            # 2. Process inputs
             # FeatureExtractor handles normalization and padding
             inputs = self.feature_extractor(
                 y, 
@@ -82,6 +82,7 @@ class HubertExtractor:
             outputs = self.model(input_values)
             
             # 4. Extract Last Hidden State [1, Seq_Len, Hidden_Dim]
+            # e.g., [1, T, 768] for base model
             features = outputs.last_hidden_state.squeeze(0).cpu().numpy()
             
             return features
@@ -91,46 +92,29 @@ class HubertExtractor:
             return None
 
 
-# Identity Tracker
 class IdentityTracker:
     def __init__(self, smooth_window: int = 5, device: str = 'cuda', conf_thresh: float = 0.5):
         self.smooth_window = smooth_window
         self.device = device
         self.conf_thresh = conf_thresh
-        # Load model once
         self.detector = YOLO('yolov8l.pt') 
         self.detector.to(device)
 
     def track_video(self, video_frames: np.ndarray) -> Optional[Dict[int, List[Tuple]]]:
         trajectories = {}
-        
-        # Convert 4D numpy array to List of 3D arrays.
-        frame_list = [f for f in video_frames]
-
+        frame_list = [f for f in video_frames] # Fix for YOLO dimension bug
         results = self.detector.track(
-            source=frame_list, 
-            persist=True, 
-            tracker="bytetrack.yaml",
-            classes=[0], 
-            conf=self.conf_thresh, 
-            verbose=False, 
-            device=self.device, 
-            stream=True
+            source=frame_list, persist=True, tracker="bytetrack.yaml",
+            classes=[0], conf=self.conf_thresh, verbose=False, device=self.device, stream=True
         )
-
         for frame_idx, result in enumerate(results):
             if result.boxes is None or result.boxes.id is None: continue
-            
             boxes_xywh = result.boxes.xywh.cpu().numpy()
             track_ids = result.boxes.id.cpu().numpy().astype(int)
-
             for box, track_id in zip(boxes_xywh, track_ids):
-                # Convert Center-XYWH to TopLeft-XYWH
                 x, y, w, h = box[0] - box[2]/2, box[1] - box[3]/2, box[2], box[3]
-                
                 if track_id not in trajectories: trajectories[track_id] = []
                 trajectories[track_id].append((frame_idx, np.array([x, y, w, h])))
-
         if not trajectories: return None
         return self._smooth_trajectories(trajectories)
 
@@ -143,14 +127,11 @@ class IdentityTracker:
             frames = [t[0] for t in track]
             bboxes = np.array([t[1] for t in track])
             smoothed_bboxes = np.zeros_like(bboxes)
-            # Smooth coordinates
             for i in range(4):
                 smoothed_bboxes[:, i] = gaussian_filter1d(bboxes[:, i], sigma=self.smooth_window / 3)
             smoothed[pid] = [(int(f), smoothed_bboxes[idx]) for idx, f in enumerate(frames)]
         return smoothed
 
-
-# Tube Extractor
 class TubeExtractor:
     def __init__(self, crop_size: Tuple[int, int] = (224, 224)):
         self.crop_size = crop_size
@@ -159,32 +140,23 @@ class TubeExtractor:
         tubes = {}
         video_tensor = video_tensor.to(device)
         _, _, H, W = video_tensor.shape
-
         for person_id, track in trajectories.items():
             crops = []
             for frame_idx, bbox in track:
                 x, y, w, h = map(int, bbox)
-                
-                # Strict boundary checks
                 x, y = max(0, min(x, W-1)), max(0, min(y, H-1))
                 w, h = max(1, min(w, W-x)), max(1, min(h, H-y))
-
                 crop = video_tensor[:, frame_idx, y:y+h, x:x+w]
-                
-                # Interpolate expects [Batch, Channel, H, W]
                 crop_resized = F.interpolate(
                     crop.unsqueeze(0), size=self.crop_size, mode='bilinear', align_corners=False
                 ).squeeze(0)
                 crops.append(crop_resized)
-
             if crops:
-                # Stack temporal dimension
                 tubes[person_id] = torch.stack(crops, dim=1).cpu() 
-
         return tubes
 
 
-class VGAFDataPreprocessor:
+class GEVCDataPreprocessor:
     def __init__(
         self,
         dataset_root: str,
@@ -199,30 +171,35 @@ class VGAFDataPreprocessor:
         self.target_fps = target_fps
         self.device = device
         
+        # Directories
         self.data_dir = self.output_root / 'data'
         self.meta_dir = self.output_root / 'metadata'
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self.meta_dir.mkdir(parents=True, exist_ok=True)
         
+        # Init Components
         self.tracker = IdentityTracker(smooth_window=5, device=device)
         self.tube_extractor = TubeExtractor(crop_size=crop_size)
         
-        # --- REPLACED: AudioExtractor with HubertExtractor ---
+        # AudioExtractor with HubertExtractor ---
         self.hubert_extractor = HubertExtractor(device=device)
         
-        self.vgaf_to_gavid_map = {1: 0, 2: 1, 3: 2} 
-        self.emotion_names = {0: 'Positive', 1: 'Negative', 2: 'Neutral'}
+        # Mapping (Adjust based on your specific GAVID labels)
+        self.emotion_map = {
+            'Positive': 0, 'Negative': 1, 'Neutral': 2,
+            0: 0, 1: 1, 2: 2
+        }
 
     def get_video_paths(self, split: str) -> List[Path]:
-        # Define potential folder names for the split
+        # --- ROBUST PATH FINDING ---
         if split.lower() == 'train':
             folder_candidates = ['Train', 'train', 'Training', 'training']
+        elif split.lower() == 'test':
+            folder_candidates = ['Test', 'test', 'Testing', 'testing']
         else:
             folder_candidates = ['Val', 'val', 'Validation', 'validation']
             
-        # Search locations: specific subdir first, then root
-        search_roots = [self.dataset_root / 'VGAF_EmotiW', self.dataset_root]
-        
+        search_roots = [self.dataset_root / 'GAVID', self.dataset_root]
         target_dir = None
         
         # 1. Find the directory
@@ -241,40 +218,113 @@ class VGAFDataPreprocessor:
             
         logger.info(f"Found video directory for {split}: {target_dir}")
         
-        # 2. Find files
-        files = sorted(list(target_dir.glob('*.mp4')))
-        if not files:
-             logger.warning(f"Directory found ({target_dir}) but contained no .mp4 files.")
-             
-        return files
+        # 2. Find files (Recursive + Case Insensitive)
+        files = [
+            p for p in target_dir.rglob('*') 
+            if p.is_file() and p.suffix.lower() == '.mp4'
+        ]
+        
+        return sorted(files)
 
     def load_annotations(self, split: str) -> Dict[str, Dict]:
-        annotations = {}
-        candidates = [
-            self.dataset_root / f'{split}_labels.txt',
-            self.dataset_root / f'{split.capitalize()}_labels.txt',
-            self.dataset_root / 'VGAF_EmotiW' / f'{split}_labels.txt'
-        ]
-        anno_file = next((p for p in candidates if p.exists()), None)
-        if not anno_file: return {}
+        if split == 'test':
+            logger.info("Test split selected: processing without labels.")
+            return {}
 
-        with open(anno_file, 'r') as f:
-            lines = f.readlines()
+        annotations = {}
         
-        start_idx = 1 if 'vid' in lines[0].lower() else 0
-        for line in lines[start_idx:]:
-            parts = line.strip().split()
-            if len(parts) < 2: continue
-            vid_name = parts[0].replace('.mp4', '')
+        # Search for CSV and Excel files in root and Annotations subdir
+        # Added support for .xlsx files
+        patterns = [f'*{split}*.csv', f'*{split}*.xlsx']
+        candidates = []
+        for pat in patterns:
+            candidates.extend(list(self.dataset_root.glob(pat)))
+            candidates.extend(list((self.dataset_root / 'Annotations').glob(pat)))
+        
+        # Prioritize files with 'label' in the name (e.g. train_labels.xlsx over train.xlsx)
+        candidates.sort(key=lambda p: 'label' not in p.name.lower())
+
+        if not candidates:
+            logger.warning(f"No annotation file found for {split}. Processing without labels.")
+            return {}
+
+        # Try to read candidates until we find a valid one
+        valid_df = None
+        valid_path = None
+        
+        for cand in candidates:
             try:
-                vgaf_label = int(parts[1])
-                if vgaf_label in self.vgaf_to_gavid_map:
-                    mapped = self.vgaf_to_gavid_map[vgaf_label]
-                    annotations[vid_name] = {
-                        'vgaf_label': vgaf_label, 'label': mapped, 
-                        'group_emotion': self.emotion_names[mapped]
-                    }
-            except ValueError: continue
+                if cand.suffix.lower() == '.csv':
+                    df = pd.read_csv(cand)
+                elif cand.suffix.lower() == '.xlsx':
+                    df = pd.read_excel(cand)
+                else:
+                    continue
+                
+                # Normalize columns: lower case and strip whitespace
+                df.columns = [str(c).lower().strip() for c in df.columns]
+                
+                # Check for 'video_id' or similar column to confirm it's the right file
+                # We look for 'video' AND 'id', or 'filename', or 'file_name'
+                vid_col = next((c for c in df.columns if ('video' in c and 'id' in c) or 'filename' in c or 'file_name' in c), None)
+                
+                if vid_col:
+                    valid_df = df
+                    valid_path = cand
+                    break
+            except Exception as e:
+                logger.debug(f"Failed to read candidate {cand}: {e}")
+                continue
+
+        if valid_df is None:
+            logger.warning(f"Found annotation files but could not parse any for {split}. Processing without labels.")
+            return {}
+
+        logger.info(f"Loading annotations from: {valid_path}")
+        df = valid_df
+        
+        # Identify columns
+        vid_col = next((c for c in df.columns if ('video' in c and 'id' in c) or 'filename' in c or 'file_name' in c), None)
+        emo_col = next((c for c in df.columns if 'group_emotion' in c or 'label' in c or 'emotion' in c), None)
+        desc_col = next((c for c in df.columns if 'description' in c or 'caption' in c), None)
+
+        if not vid_col:
+            logger.error(f"Could not find video ID column. Columns: {df.columns}")
+            return {}
+
+        for _, row in df.iterrows():
+            try:
+                # Parse Video ID
+                raw_vid_id = str(row[vid_col])
+                # Remove extension if present
+                key = re.sub(r'\.mp4$', '', raw_vid_id, flags=re.IGNORECASE).strip()
+                
+                label_data = {
+                    'description': str(row[desc_col]) if desc_col and not pd.isna(row[desc_col]) else ""
+                }
+
+                # Parse Emotion Label
+                if emo_col and not pd.isna(row[emo_col]):
+                    raw_emo = str(row[emo_col]).strip()
+                    # Try to map string label or use integer directly
+                    if raw_emo.isdigit():
+                        label_int = int(raw_emo)
+                    else:
+                        label_int = self.emotion_map.get(raw_emo, -1)
+                    
+                    label_data['label'] = label_int
+                    label_data['group_emotion'] = raw_emo
+                else:
+                    label_data['label'] = -1
+                    label_data['group_emotion'] = 'Unknown'
+                
+                annotations[key] = label_data
+                
+            except Exception as e:
+                logger.debug(f"Row parse error: {e}")
+                continue
+                
+        logger.info(f"Loaded {len(annotations)} annotations.")
         return annotations
 
     def load_and_sample_video(self, video_path: Path) -> Optional[np.ndarray]:
@@ -293,45 +343,35 @@ class VGAFDataPreprocessor:
             if not ret: break
             
             if count % step == 0:
-                # Validation check for frame dimensions
                 if frame.shape[0] > 0 and frame.shape[1] > 0:
                     frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             count += 1
             
         cap.release()
-        
-        if not frames:
-            return None
-        return np.array(frames)
+        return np.array(frames) if frames else None
 
-    def save_to_h5(self, video_id: str, split: str, 
+    def save_to_h5(self, filename_stem: str, split: str, 
                    full_video_tensor: torch.Tensor, 
                    tubes_data: Dict, 
                    trajectories: Dict,
                    audio_features: Optional[np.ndarray]) -> str:
         
-        # Create split-specific folder
         save_dir = self.data_dir / split
         save_dir.mkdir(parents=True, exist_ok=True)
         
-        # Save as video_id.h5 inside the split folder
-        h5_path = save_dir / f'{video_id}.h5'
+        h5_path = save_dir / f'{filename_stem}.h5'
         
-        # Convert video to uint8 [T,H,W,C]
         full_video_uint8 = (full_video_tensor.permute(1, 2, 3, 0) * 255).byte().numpy()
 
         with h5py.File(h5_path, 'w') as f:
-            # Global Data
             f.create_dataset('full_frames', data=full_video_uint8, compression="lzf", chunks=True)
             
-            # Save HuBERT features
+            # Save HuBERT features instead of spectrogram ---
             if audio_features is not None:
                 f.create_dataset('audio_features', data=audio_features, compression="lzf")
             else:
-                # Create empty dataset if no audio features extracted
                 f.create_dataset('audio_features', shape=(0,), dtype='f')
 
-            # Person Data
             grp_persons = f.create_group('persons')
             for pid, data in tubes_data.items():
                 p_grp = grp_persons.create_group(str(pid))
@@ -343,7 +383,7 @@ class VGAFDataPreprocessor:
 
         return str(h5_path)
 
-    def reconstruct_metadata(self, h5_path: Path, video_id: str, split: str, annotation: Dict) -> Optional[Dict]:
+    def reconstruct_metadata(self, h5_path: Path, video_name: str, split: str, annotation: Dict) -> Optional[Dict]:
         """
         Quickly reads existing HDF5 file to reconstruct metadata without reprocessing.
         """
@@ -358,12 +398,14 @@ class VGAFDataPreprocessor:
                     has_audio = f['audio_features'].shape[0] > 0
                 
             return {
-                'video_id': video_id,
+                'video_name': video_name,
                 'split': split,
                 'num_people': num_people,
                 'num_frames': num_frames,
                 'has_audio': has_audio,
-                **annotation,
+                'label': annotation.get('label', -1),
+                'group_emotion': annotation.get('group_emotion', 'Unknown'),
+                'description': annotation.get('description', ''),
                 'data_path': str(h5_path)
             }
         except Exception as e:
@@ -371,7 +413,7 @@ class VGAFDataPreprocessor:
             return None
 
     def process_single_video(self, video_path: Path, annotation: Dict, split: str) -> Optional[Dict]:
-        video_id = video_path.stem
+        vid_stem = video_path.stem 
         
         # 1. Load Video
         video_frames = self.load_and_sample_video(video_path)
@@ -385,19 +427,17 @@ class VGAFDataPreprocessor:
         try:
             trajectories = self.tracker.track_video(video_frames)
         except Exception as e:
-            logger.error(f"Tracking crashed on {video_id}: {e}")
+            logger.error(f"Tracking error {vid_stem}: {e}")
             return None
 
         if not trajectories:
-            logger.warning(f"No people detected in {video_id}.")
+            logger.warning(f"No people detected in {vid_stem}.")
             return None
 
         # 4. Extract Visual Tubes
         video_tensor = torch.from_numpy(video_frames).permute(3, 0, 1, 2).float().to(self.device) / 255.0
         try:
             tubes_raw = self.tube_extractor.extract_tubes(video_tensor, trajectories, self.device)
-            
-            # Memory Cleanup
             video_tensor = video_tensor.cpu()
             torch.cuda.empty_cache()
             
@@ -408,71 +448,81 @@ class VGAFDataPreprocessor:
                 tubes_processed[pid] = {'tube': tube, 'box': torch.tensor(norm_boxes, dtype=torch.float32)}
 
             # 5. Save HDF5
-            h5_path = self.save_to_h5(video_id, split, video_tensor, tubes_processed, trajectories, audio_features)
+            h5_path = self.save_to_h5(vid_stem, split, video_tensor, tubes_processed, trajectories, audio_features)
             
             metadata = {
-                'video_id': video_id,
+                'video_name': vid_stem,
                 'split': split,
                 'num_people': len(tubes_processed),
                 'num_frames': len(video_frames),
                 'has_audio': audio_features is not None,
-                **annotation,
+                'label': annotation.get('label', -1),
+                'group_emotion': annotation.get('group_emotion', 'Unknown'),
+                'description': annotation.get('description', ''),
                 'data_path': h5_path
             }
             return metadata
 
         except Exception as e:
-            logger.error(f"Error processing {video_id}: {str(e)}")
+            logger.error(f"Error processing {vid_stem}: {str(e)}")
             return None
         finally:
             if 'video_tensor' in locals(): del video_tensor
             torch.cuda.empty_cache()
 
     def run(self):
-        for split in ['train', 'val']:
+        for split in ['train', 'val', 'test']:
             logger.info(f"--- Processing Split: {split.upper()} ---")
+            
             annotations = self.load_annotations(split)
             video_paths = self.get_video_paths(split)
             
+            if not video_paths:
+                logger.warning(f"No videos found for {split}. Skipping.")
+                continue
+
             all_meta = []
             
-            # Create progress bar
+            # Use TQDM with resume logic
             pbar = tqdm(video_paths)
             
             for video_path in pbar:
-                video_id = video_path.stem
-                if video_id not in annotations:
-                    continue
+                key = video_path.stem 
+                anno = annotations.get(key, {}) 
                 
-                # --- RESUME LOGIC ---
-                expected_h5_path = self.data_dir / split / f'{video_id}.h5'
-                
-                if expected_h5_path.exists():
-                    pbar.set_description(f"Skipping {video_id} (Exists)")
-                    # Reconstruct metadata from existing file to ensure JSON index is complete
-                    meta = self.reconstruct_metadata(expected_h5_path, video_id, split, annotations[video_id])
-                    if meta:
-                        all_meta.append(meta)
+                # Only process if we have annotations OR it is the test set
+                if anno or split == 'test':
+                    
+                    # --- RESUME LOGIC ---
+                    expected_h5_path = self.data_dir / split / f'{key}.h5'
+                    
+                    if expected_h5_path.exists():
+                        pbar.set_description(f"Skipping {key} (Exists)")
+                        meta = self.reconstruct_metadata(expected_h5_path, key, split, anno)
+                        if meta:
+                            all_meta.append(meta)
+                        else:
+                            # File corrupt or unreadable, re-process
+                            meta = self.process_single_video(video_path, anno, split)
+                            if meta: all_meta.append(meta)
                     else:
-                        # If file existed but was corrupt/unreadable, reprocess it
-                        meta = self.process_single_video(video_path, annotations[video_id], split)
+                        pbar.set_description(f"Processing {key}")
+                        meta = self.process_single_video(video_path, anno, split)
                         if meta: all_meta.append(meta)
-                else:
-                    pbar.set_description(f"Processing {video_id}")
-                    meta = self.process_single_video(video_path, annotations[video_id], split)
-                    if meta: all_meta.append(meta)
 
-            # Write index file (overwrites existing index to ensure it matches current data folder state)
+            # Dump JSON index
             with open(self.meta_dir / f'{split}_index.json', 'w') as f:
                 json.dump(all_meta, f, indent=2)
-            
+                
             logger.info(f"Finished {split}. Saved {len(all_meta)} entries to index.")
 
+
 if __name__ == "__main__":
-    DATASET_ROOT = './Datasets/VGAF'
-    OUTPUT_ROOT = './VGAF_processed'
+    # UPDATE THESE PATHS
+    DATASET_ROOT = './GEVC'
+    OUTPUT_ROOT = './GEVC_processed'
     
-    processor = VGAFDataPreprocessor(
+    processor = GEVCDataPreprocessor(
         dataset_root=DATASET_ROOT,
         output_root=OUTPUT_ROOT,
         crop_size=(224, 224),
@@ -481,6 +531,7 @@ if __name__ == "__main__":
     )
     
     print("\n" + "="*50)
-    print(" STARTING VGAF PREPROCESSING (VISION + HUBERT AUDIO)")
+    print(" STARTING GEVC PREPROCESSING")
     print("="*50)
     processor.run()
+    print("\nProcessing Complete.")

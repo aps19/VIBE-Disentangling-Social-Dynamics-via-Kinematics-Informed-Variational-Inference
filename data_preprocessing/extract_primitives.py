@@ -205,11 +205,26 @@ def run_vibe_extraction(source_root, output_root, train_xlsx, val_xlsx):
         logger.info(f"Finished {split}. Processed {processed_count} videos.")
 
 if __name__ == "__main__":
-    # Update these paths to your environment
-    # NOTE: Using workspace paths to avoid PermissionError
-    RAW_DATA_ROOT = './VGAF_processed'
-    VIBE_OUTPUT_ROOT = './VGAF_VIBE_PRIMITIVES'
-    TRAIN_XLSX = './VGAF_processed/train.xlsx'
-    VAL_XLSX = './VGAF_processed/val.xlsx'
+    import argparse
+    import yaml
     
-    run_vibe_extraction(RAW_DATA_ROOT, VIBE_OUTPUT_ROOT, TRAIN_XLSX, VAL_XLSX)
+    parser = argparse.ArgumentParser(description="Extract VIBE primitives")
+    parser.add_argument("--config", type=str, required=True, help="Path to config file (e.g., config/data_extraction.yaml)")
+    parser.add_argument("--dataset", type=str, choices=["vgaf", "gecv"], required=True, help="Dataset to process (vgaf or gecv)")
+    args = parser.parse_args()
+    
+    # Load YAML Configuration
+    with open(args.config, 'r') as file:
+        cfg = yaml.safe_load(file)
+        
+    dataset_cfg = cfg.get(args.dataset)
+    if not dataset_cfg:
+        raise ValueError(f"Configuration for dataset '{args.dataset}' not found in {args.config}")
+        
+    logger.info(f"Starting extraction for {args.dataset.upper()} dataset")
+    run_vibe_extraction(
+        dataset_cfg['raw_data_root'], 
+        dataset_cfg['vibe_output_root'], 
+        dataset_cfg['train_xlsx'], 
+        dataset_cfg['val_xlsx']
+    )
