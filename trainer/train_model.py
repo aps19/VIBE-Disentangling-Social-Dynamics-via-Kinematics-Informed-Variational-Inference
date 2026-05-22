@@ -1,3 +1,5 @@
+import argparse
+import yaml
 from sklearn.metrics import accuracy_score, classification_report, f1_score
 import torch
 import torch.nn as nn
@@ -9,7 +11,7 @@ from pathlib import Path
 import numpy as np
 
 from model.vibe_model import VIBE_Transformer
-from dataloading.vibe_dataset import VIBEDataset, csync_collate_fn, create_group_split
+from dataloading.vibe_dataset import VIBEDataset, vibe_collate_fn, create_group_split
 from vizualization import VIBE_DeepVisualizer
 from losses.loss_function import VIBE_Loss
 
@@ -42,12 +44,12 @@ class VIBETrainer:
         self.train_loader = DataLoader(
             VIBEDataset(train_files, max_k=max_k, max_t=max_t), 
             batch_size=cfg['batch_size'], shuffle=True, 
-            collate_fn=csync_collate_fn, num_workers=num_workers, pin_memory=True
+            collate_fn=vibe_collate_fn, num_workers=num_workers, pin_memory=True
         )
         self.val_loader = DataLoader(
             VIBEDataset(val_files, max_k=max_k, max_t=max_t), 
             batch_size=cfg['batch_size'], shuffle=False, 
-            collate_fn=csync_collate_fn, num_workers=num_workers, pin_memory=True
+            collate_fn=vibe_collate_fn, num_workers=num_workers, pin_memory=True
         )
         
         # --- B. Load Original Validation Set as 'Test' ---
@@ -56,7 +58,7 @@ class VIBETrainer:
         self.test_loader = DataLoader(
             VIBEDataset(test_files, max_k=max_k, max_t=max_t),
             batch_size=cfg['batch_size'], shuffle=False,
-            collate_fn=csync_collate_fn, num_workers=num_workers
+            collate_fn=vibe_collate_fn, num_workers=num_workers
         )
         print(f"  > Test Set (Held Out): {len(test_files)} clips loaded.")
 
@@ -70,8 +72,7 @@ class VIBETrainer:
         
         # --- D. Init Loss (V5.5 Improved) ---
         self.criterion = VIBE_Loss(
-            lambda_supcon=cfg.get('lambda_supcon', 0.5),
-            lambda_cot=cfg.get('lambda_cot', 0.5),
+            lambda_sat=cfg.get('lambda_sat', 0.5),
             lambda_ortho=cfg.get('lambda_ortho', 0.1) # New Ortho Weight
         ).to(self.device)
         
@@ -267,3 +268,15 @@ class VIBETrainer:
              print("="*50)
 
         return {'acc': acc, 'f1': f1}
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Train VIBE Framework")
+    parser.add_argument("--config", type=str, required=True, help="Path to the YAML configuration file")
+    args = parser.parse_args()
+
+    # Load YAML Configuration
+    with open(args.config, 'r') as file:
+        config = yaml.safe_load(file)
+
+    trainer = VIBETrainer(config)
+    trainer.run(epochs=config['epochs'])

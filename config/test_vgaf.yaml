@@ -1,0 +1,8 @@
+# --- CONFIGURATION ---
+data_root: "./VGAF_VIBE_PRIMITIVES"
+log_dir: "./logs/vibe_vgaf"
+batch_size: 8          # Faster inference
+latent_dim: 512
+
+# Directory containing your .pth files
+checkpoint_folder: "./checkpoints/vibe_vgaf"

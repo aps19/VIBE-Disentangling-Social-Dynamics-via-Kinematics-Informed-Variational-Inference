@@ -1,4 +1,13 @@
-
+import torch
+import torch.nn.functional as F
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+import seaborn as sns
+from pathlib import Path
+from sklearn.manifold import TSNE
+from sklearn.metrics import confusion_matrix
 
 class VIBE_DeepVisualizer:
     def __init__(self, log_dir):
@@ -29,7 +38,7 @@ class VIBE_DeepVisualizer:
         ax = fig.add_subplot(111, projection='3d')
         ax.scatter(emb[:, 0], emb[:, 1], emb[:, 2], c=colors, s=50, alpha=0.7, edgecolors='w')
         
-        from matplotlib.lines import Line2D
+        
         legend_elements = [Line2D([0], [0], marker='o', color='w', markerfacecolor=self.colors[k], label=k, markersize=10) for k in class_names]
         ax.legend(handles=legend_elements, loc='upper right', title="Emotion")
         ax.set_title(f"3D Manifold Structure - Epoch {epoch}", fontsize=16, fontweight='bold')

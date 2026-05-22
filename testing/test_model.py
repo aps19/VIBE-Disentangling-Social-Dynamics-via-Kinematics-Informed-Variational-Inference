@@ -1,3 +1,5 @@
+import argparse
+import yaml
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -8,13 +10,11 @@ import pandas as pd
 from sklearn.metrics import accuracy_score, classification_report, f1_score
 import matplotlib.pyplot as plt
 import seaborn as sns
-
-# --- NEW IMPORTS FOR INTERACTIVE PLOTS ---
 from sklearn.manifold import TSNE
 import plotly.express as px
 
 from model.vibe_model import VIBE_Transformer
-from dataloading.vibe_dataset import VIBEDataset, csync_collate_fn
+from dataloading.vibe_dataset import VIBEDataset, vibe_collate_fn
 
 class CSYNCTester:
     def __init__(self, cfg):
@@ -43,7 +43,7 @@ class CSYNCTester:
             VIBEDataset(self.test_files), 
             batch_size=cfg['batch_size'], 
             shuffle=False, 
-            collate_fn=csync_collate_fn,
+            collate_fn=vibe_collate_fn,
             num_workers=0
         )
         print(f"  > Loaded Held-Out Test Set: {len(self.test_files)} clips.")
@@ -204,4 +204,19 @@ class CSYNCTester:
         if best_h_final is not None:
              print(f"\nGeneratig Visuals for Winner: {best_model_name}")
              self.generate_interactive_3d_tsne(best_h_final, best_targets, best_model_name)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Test VIBE Framework")
+    parser.add_argument("--config", type=str, required=True, help="Path to the YAML configuration file")
+    args = parser.parse_args()
+
+    # Load YAML Configuration
+    with open(args.config, 'r') as file:
+        test_config = yaml.safe_load(file)
+    
+    tester = CSYNCTester(test_config)
+    
+    # Assuming 'checkpoint_folder' is defined in the config yaml
+    tester.scan_and_evaluate_all(test_config['checkpoint_folder'])
+
 

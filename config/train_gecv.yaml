@@ -1,0 +1,38 @@
+# ==================== PATHS ====================
+data_root: "./GEVC_PRIMITIVES"
+log_dir: "./logs/vibe_gecv"
+checkpoint_dir: "./checkpoints/vibe_gecv"
+
+# ==================== DATA ====================
+batch_size: 16
+val_ratio: 0.1           # Fraction of train data for validation
+num_workers: 0           # DataLoader workers
+max_k: 8                 # Max persons per clip 
+max_t: 32                # Max temporal frames 
+
+# ==================== MODEL ====================
+input_dim: 768           # Input feature dimension (CLIP/ViT)
+latent_dim: 512          # Latent space dimension
+num_classes: 3           # Pos, Neu, Neg
+
+# ==================== OPTIMIZER ====================
+lr: 1e-4
+weight_decay: 0.01       # AdamW weight decay
+grad_clip: 1.0           # Gradient clipping max norm
+
+# ==================== SCHEDULER ====================
+scheduler_patience: 3    # ReduceLROnPlateau patience
+scheduler_factor: 0.1    # LR reduction factor
+
+# ==================== LOSS WEIGHTS ====================
+lambda_sat: 0.5          # Semantic Alignment loss weight
+lambda_ortho: 0.1        # Orthogonality loss weight
+
+# ==================== TRAINING ====================
+epochs: 30
+mixup_alpha: 0.2         # Manifold mixup alpha (0 to disable)
+save_threshold: 0.60     # Min accuracy to save checkpoint
+
+# ==================== VISUALIZATION ====================
+viz_subsample: 10       # Max samples for visualization
+viz_every_n_epochs: 3    # Generate plots every N epochs

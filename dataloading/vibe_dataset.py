@@ -95,7 +95,7 @@ def compute_masked_gamma(sync_mat, real_k):
             gammas.append(torch.tensor(0.0))
     return torch.stack(gammas).view(B, 1, 1)
 
-def csync_collate_fn(batch):
+def vibe_collate_fn(batch):
     batch = [b for b in batch if b is not None]
     if len(batch) == 0: return None
 
