@@ -1,0 +1,11 @@
+# ==================== PATHS ====================
+checkpoint_path: "./model_best.pth"
+
+# ==================== MODEL ARCHITECTURE ====================
+input_dim: 768           # Dimension from HuBERT/VideoMAE/DINOv2
+latent_dim: 512          # VIBE bottleneck dimension
+num_classes: 3           # Positive, Neutral, Negative
+
+# ==================== SEQUENCE CONSTRAINTS ====================
+max_k: 8                 # Maximum number of people to track/process
+max_t: 32                # Maximum temporal sequence length (frames/tokens)

@@ -107,6 +107,9 @@ cd VIBE-Disentangling-Social-Dynamics-via-Kinematics-Informed-Variational-Infere
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Inference
+python testing/inference.py --video /your/video.mp4 --config config/inference.yaml
 ```
 
 ---
