@@ -27,7 +27,7 @@
 
 VIBE is a multimodal, causally-structured framework that processes video, audio, and text through specialized encoders. The architecture is illustrated below:
 
-![VIBE Architecture](VIBE_Architecture8.jpg)
+![VIBE Architecture](vibe_arch.jpg)
 
 *Overview of the proposed VIBE architecture. The framework processes features from three pre-trained encoders: Global Context (X_glob) via VideoMAE V2, Local Agent Tubes (X_loc) via DINOv2, and Acoustic Prosody (X_aud) via HuBERT. γ denotes the Synchrony Matrix used for dynamic gating, while X_text represents the textual anchor features. The Variational Information Bottleneck (VIB) compresses the representation and filters noise, while L_ortho enforces orthogonality between the environmental (Z_env) and affective (Z_aff) latent spaces to ensure disentanglement.*
 
