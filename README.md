@@ -186,7 +186,7 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 ---
 
 <div align="center">
-  <sub>Built and Maintained by Abhishek | Accepted at ICML 2026</sub>
+  <sub>Built and Maintained by Abhishek and Deepak| Accepted at ICML 2026</sub>
 </div>
 
 <!--
